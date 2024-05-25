@@ -1,0 +1,63 @@
+version: '3'
+services:
+  generator:
+    image: dynamic-generator/generator
+    build:
+      context: .
+      dockerfile: ./docker/docker-files/generator/Dockerfile
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    working_dir: /opt/app/
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./.env
+    environment:
+      SERVICE_NAME: generator
+      LOG_LINES: 9999:-9999
+    restart: always
+    networks:
+      in-network:
+        aliases:
+          - generator
+
+  mosquitto:
+    image: eclipse-mosquitto
+    hostname: mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto:/etc/mosquitto
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      in-network:
+        aliases:
+          - mosquitto
+
+  publisher:
+    image: dynamic-generator/publisher
+    build:
+      context: .
+      dockerfile: ./docker/docker-files/publisher/Dockerfile
+    tty: true
+    working_dir: /opt/app/
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./.env
+    environment:
+      SERVICE_NAME: publisher
+      LOG_LINES: 9999:-9999
+    restart: always
+    networks:
+      in-network:
+        aliases:
+          - publisher
+networks: 
+  in-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: "generator-br"
